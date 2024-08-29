@@ -1,0 +1,79 @@
+locals {
+  {{ sg_id }} = {
+    sg_tags  = { {% for tag in tags -%}"{{ tag.Key }}":"{{ tag.Value }}"{{ "," if not loop.last }}{% endfor %} }
+    sg_vpc_id      = "{{ vpc_id }}"
+    sg_name        = "{{ sg_name }}"
+    sg_description = "{{ sg_desc }}"
+    sg_ingress_rules = [
+      {% for rule in ingress_rules -%}
+
+      {
+        from_port        = "{{ rule.from_port }}"
+        to_port          = "{{ rule.to_port }}"
+        protocol         = "{{ rule.proto }}"
+        cidr_blocks      = "{{ rule.cidr_blocks }}"
+        ipv6_cidr_blocks = "None"
+        prefix_list_ids  = "{{ rule.prefix_list_ids }}"
+        security_groups  = "{{ rule.security_groups }}"
+        description      = "{{ rule.description }}"
+        self             = "{{ rule.if_self }}"
+      }
+      {{ "," if not loop.last }}
+      {% endfor %}
+    ]
+    sg_egress_rules = [
+      {% for rule in egress_rules -%}
+
+      {
+        from_port        = "{{ rule.from_port }}"
+        to_port          = "{{ rule.to_port }}"
+        protocol         = "{{ rule.proto }}"
+        cidr_blocks      = "{{ rule.cidr_blocks }}"
+        ipv6_cidr_blocks = "None"
+        prefix_list_ids  = "{{ rule.prefix_list_ids }}"
+        security_groups  = "{{ rule.security_groups }}"
+        description      = "{{ rule.description }}"
+        self             = "{{ rule.if_self }}"
+      }
+      {{ "," if not loop.last }}
+      {% endfor %}
+    ]
+  }
+}
+
+resource "aws_security_group" "{{ sg_id }}" {
+  name        = local.{{ sg_id }}.sg_name
+  description = local.{{ sg_id }}.sg_description
+  vpc_id      = local.{{ sg_id }}.sg_vpc_id
+  tags        = merge(local.{{ sg_id }}.sg_tags)
+
+
+  dynamic "ingress" {
+    for_each = local.{{ sg_id }}.sg_ingress_rules
+    content {
+      description      = lookup(ingress.value, "description", "")
+      from_port        = lookup(ingress.value, "from_port")
+      to_port          = lookup(ingress.value, "to_port")
+      protocol         = lookup(ingress.value, "protocol")
+      cidr_blocks      = tostring(lookup(ingress.value, "cidr_blocks", "None")) == "None" ? [] : split(",", lookup(ingress.value, "cidr_blocks", "None"))
+      ipv6_cidr_blocks = tostring(lookup(ingress.value, "ipv6_cidr_blocks", "None")) == "None" ? [] : split(",", lookup(ingress.value, "ipv6_cidr_blocks", "None"))
+      self             = tobool(lookup(ingress.value, "self", "false"))
+      prefix_list_ids  = tostring(lookup(ingress.value, "prefix_list_ids", "None")) == "None" ? [] : split(",", lookup(ingress.value, "prefix_list_ids", "None"))
+      security_groups  = tostring(lookup(ingress.value, "security_groups", "None")) == "None" ? [] : split(",", lookup(ingress.value, "security_groups", "None"))
+    }
+  }
+  dynamic "egress" {
+    for_each = local.{{ sg_id }}.sg_egress_rules
+    content {
+      description      = lookup(egress.value, "description", "")
+      from_port        = lookup(egress.value, "from_port")
+      to_port          = lookup(egress.value, "to_port")
+      protocol         = lookup(egress.value, "protocol")
+      cidr_blocks      = tostring(lookup(egress.value, "cidr_blocks", "None")) == "None" ? [] : split(",", lookup(egress.value, "cidr_blocks", "None"))
+      ipv6_cidr_blocks = tostring(lookup(egress.value, "ipv6_cidr_blocks", "None")) == "None" ? [] : split(",", lookup(egress.value, "ipv6_cidr_blocks", "None"))
+      self             = tobool(lookup(egress.value, "self", "false"))
+      prefix_list_ids  = tostring(lookup(egress.value, "prefix_list_ids", "None")) == "None" ? [] : split(",", lookup(egress.value, "prefix_list_ids", "None"))
+      security_groups  = tostring(lookup(egress.value, "security_groups", "None")) == "None" ? [] : split(",", lookup(egress.value, "security_groups", "None"))
+    }
+  }
+}
